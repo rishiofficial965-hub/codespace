@@ -1,0 +1,14 @@
+node_modules
+.env
+.vscode/
+*.log
+build/
+dist/
+coverage/
+.yarn/
+.npm/
+.cache/
+.idea/
+.DS_Store
+.env.local
+.env.*
