@@ -1,9 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: sandbox-deployment
+  name: sandbox-deployment-main
   labels:
-    name: sandbox-deployment
+    name: sandbox-deployment-main
 spec:
   replicas: 1
   selector:
@@ -14,12 +14,13 @@ spec:
       labels:
         app: sandbox
     spec:
+      ServiceAccountName: resource-manager
       containers:
       - name: sandbox-container
-        image: sandbox:latest
-        imagePullPolicy: IfNotPresent
+        image: sandbox:v2
+        imagePullPolicy: Never
         resources:
-          limits:
+          limits: 
             memory: "400Mi"
             cpu: "500m"
           requests:
