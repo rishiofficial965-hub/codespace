@@ -1,9 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: sandbox-deployment-main
+  name: sandbox-deployment
   labels:
-    name: sandbox-deployment-main
+    name: sandbox-deployment
 spec:
   replicas: 1
   selector:
@@ -16,27 +16,27 @@ spec:
     spec:
       serviceAccountName: resource-manager
       containers:
-      - name: sandbox-container
-        image: sandbox:v2
-        imagePullPolicy: Never
+      - image: sandbox:v1
+        imagePullPolicy: IfNotPresent
+        name: main-sandbox-container
         resources:
-          limits: 
-            memory: "400Mi"
+          limits:
+            memory: "128Mi"
             cpu: "500m"
           requests:
-            memory: "200Mi"
+            memory: "64Mi"
             cpu: "250m"
         livenessProbe:
           httpGet:
             path: /api/sandbox/health
             port: 3000
-          initialDelaySeconds: 90
-          timeoutSeconds: 10
+          initialDelaySeconds: 15
+          periodSeconds: 5
         readinessProbe:
           httpGet:
             path: /api/sandbox/health
             port: 3000
-          initialDelaySeconds: 90
-          timeoutSeconds: 10
+          initialDelaySeconds: 15
+          periodSeconds: 5
         ports:
         - containerPort: 3000
