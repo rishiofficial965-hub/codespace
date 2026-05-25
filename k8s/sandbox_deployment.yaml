@@ -14,7 +14,7 @@ spec:
       labels:
         app: sandbox
     spec:
-      ServiceAccountName: resource-manager
+      serviceAccountName: resource-manager
       containers:
       - name: sandbox-container
         image: sandbox:v2

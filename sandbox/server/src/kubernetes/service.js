@@ -1,36 +1,39 @@
 import { k8sApi } from "./config.js";
 
+export async function createService(sandboxId) {
 
-export async function createService(sandboxId){
-    try{
+    try {
+
         const serviceManifest = {
-            metadata:{
+            apiVersion: "v1",
+            kind: "Service",
+            metadata: {
                 name: `sandbox-service-${sandboxId}`,
-                labels:{
-                    app:"sandbox",
-                    sandboxId: sandboxId
+                labels: {
+                    app: "sandbox",
+                    sandboxId
                 }
             },
-            spec:{
-                selector:{
-                    app:"sandbox",
-                    sandboxId: sandboxId
+            spec: {
+                selector: {
+                    app: "sandbox",
+                    sandboxId
                 },
-                ports:[
-                    {
-                        port: 80,
-                        targetPort: 5173,
-                        name: "http"
-                    }
-                ],
+                ports: [{
+                    port: 80,
+                    targetPort: 5173,
+                    name: "http"
+                }],
                 type: "ClusterIP"
             }
-        }
-        const response = await k8sApi.createNamespacedService("default",serviceManifest);
+        };
+
+        const response = await k8sApi.createNamespacedService("default", serviceManifest);
+
         return response;
 
-    }catch(error){
-        console.log(error);
+    } catch (error) {
+        console.dir(error, { depth: null });
         throw error;
     }
 }
