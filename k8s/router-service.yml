@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: router-server
+  labels:
+    app: router
+spec:
+  selector:
+    app: router
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 3000
+    name: http
