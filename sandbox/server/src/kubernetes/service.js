@@ -28,7 +28,10 @@ export async function createService(sandboxId) {
             }
         };
 
-        const response = await k8sApi.createNamespacedService("default", serviceManifest);
+        const response = await k8sApi.createNamespacedService({
+            namespace: "default",
+            body: serviceManifest
+        });
 
         return response;
 
