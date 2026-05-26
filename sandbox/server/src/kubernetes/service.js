@@ -13,7 +13,10 @@ export const createService = async (sandboxId) => {
             selector: {
                 sandboxId: sandboxId
             },
-            ports: [{ port: 80, targetPort: 5173, protocol: "TCP", name: "http" }],
+            ports: [
+                { port: 80, targetPort: 5173, protocol: "TCP", name: "http" },
+                { port: 3000, targetPort: 3000, protocol: "TCP", name: "agent-http" }
+            ],
             type: "ClusterIP"
         }
     }

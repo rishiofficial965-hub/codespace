@@ -27,3 +27,14 @@ spec:
               name: router-server
               port:
                 number: 80
+                
+   - host: "*.agent.localhost"
+     http:
+      paths:
+        - pathType: Prefix
+          path: '/'
+          backend:
+            service:
+              name: router-server
+              port:
+                number: 80

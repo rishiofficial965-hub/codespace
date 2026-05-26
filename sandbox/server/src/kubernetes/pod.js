@@ -11,6 +11,26 @@ export async function createPod(sandboxId) {
             }
         },
         spec: {
+            volumes:[
+                {
+                    name:"workspace-volume",
+                    emptyDir: {}
+                }
+            ],
+            initContainers: [
+                {
+                    name: 'init-container',
+                    image: 'template',
+                    imagePullPolicy: 'IfNotPresent',
+                    command: ['sh', '-c', 'cp -r /workspace/. /seed/'],
+                    volumeMounts: [
+                        {
+                            name:"workspace-volume",
+                            mountPath:"/seed"
+                        }
+                    ]
+                }
+            ],
             containers: [{
                 name: `sandbox-container`,
                 image: 'template',
@@ -19,14 +39,42 @@ export async function createPod(sandboxId) {
                 resources: {
                     requests: {
                         memory: "256Mi",
-                        cpu: "250m"
+                        cpu: "500m"
                     },
 
                     limits: {
                         memory: "512Mi",
                         cpu: "1000m"
                     }
-                }
+                },
+                volumeMounts:[
+                    {
+                        name:"workspace-volume",
+                        mountPath:"/workspace"
+                    }
+                ]
+            },{
+                name: `agent-container`,
+                image: 'agent:latest',
+                imagePullPolicy: 'IfNotPresent',
+                ports: [{ containerPort: 3000, name: "http" }],
+                resources: {
+                    requests: {
+                        memory: "256Mi",
+                        cpu: "500m"
+                    },
+
+                    limits: {
+                        memory: "512Mi",
+                        cpu: "1000m"
+                    }
+                },
+                volumeMounts:[
+                    {
+                        name:"workspace-volume",
+                        mountPath:"/workspace"
+                    }
+                ]
             }]
         }
     }
