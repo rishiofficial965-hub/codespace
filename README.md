@@ -1,65 +1,124 @@
-# Cloud Development Environment (Sandbox)
+# ⚡ Capstone: Dynamic Cloud Sandbox Environments
 
-This project provides a cloud-native development environment, similar to GitHub Codespaces, allowing users to dynamically spin up containerized development environments (Vite/React apps) in a Kubernetes cluster and access them via preview URLs.
+A lightweight, cloud-native development environment engine (similar to GitHub Codespaces) that dynamically provisions containerized React+Vite workspaces on-demand in a Kubernetes cluster, served under secure subdomains with real-time Hot Module Replacement (HMR).
 
-## Architecture
+---
 
-The system consists of several key components:
+## 🏗️ Architecture & Component Overview
 
-### 1. Sandbox Server (`/sandbox/server`)
-- An Express.js backend responsible for orchestrating the creation of sandbox environments.
-- Exposes a `POST /api/sandbox/start` endpoint which generates a unique UUID (Sandbox ID).
-- Uses the `@kubernetes/client-node` SDK to dynamically create:
-  - A **Kubernetes Pod** (`sandbox-pod-<id>`) running the Vite development template.
-  - A **Kubernetes Service** (`sandbox-service-<id>`) to expose the Pod's port `5173`.
-- Returns the dynamically generated `previewUrl` to access the environment.
+The system is composed of four core microservices and custom routing rules deployed to Kubernetes:
 
-### 2. Router (`/sandbox/router`)
-- A dynamic reverse proxy built with Express.js and `http-proxy-middleware`.
-- Routes wildcard domain requests (`*.preview.localhost`) to the appropriate sandbox service.
-- Extracts the Sandbox ID from the Host header and proxies the HTTP traffic directly to the internal Kubernetes service.
-- Supports WebSockets (`ws: true`), ensuring Vite's Hot Module Replacement (HMR) functions correctly inside the sandbox.
+| Service | Path | Tech Stack | Role |
+| :--- | :--- | :--- | :--- |
+| **Sandbox Server** | [`/sandbox/server`](file:///c:/Users/Rishi/Desktop/capstone/sandbox/server) | Express, K8s Client SDK | Dynamically provisions Pods and Services in Kubernetes on user demand. |
+| **Router Server** | [`/sandbox/router`](file:///c:/Users/Rishi/Desktop/capstone/sandbox/router) | Express, `http-proxy-middleware` | Inspects subdomains and dynamically proxies HTTP/WebSocket traffic to active sandboxes. |
+| **Vite Template** | [`/sandbox/template`](file:///c:/Users/Rishi/Desktop/capstone/sandbox/template) | React, Vite, TailwindCSS | The baseline workspace template running inside sandbox pods. |
+| **Agent Sidecar** | [`/sandbox/agent`](file:///c:/Users/Rishi/Desktop/capstone/sandbox/agent) | Express | A sidecar container inside the sandbox pod for workspace filesystem operations. |
 
-### 3. Template (`/sandbox/template`)
-- A baseline React + Vite application that serves as the starting point for new sandboxes.
-- Configured with **TailwindCSS** for rapid styling.
-- Bundled into a Docker image (`template:latest`). The `sync.ps1` script is used to build the image and push it to the local Kubernetes node using containerd (`ctr`).
+---
 
-### 4. Kubernetes Manifests (`/k8s`)
-- **Ingress (`ingress.yml`)**: An NGINX Ingress Controller configuration that routes:
-  - `/api/sandbox` traffic to the Sandbox Server.
-  - `*.preview.localhost` traffic to the Router.
-- **Deployments & Services**: Defines the necessary deployments and cluster IP services for the Router and Sandbox Server.
-- **RBAC (`rbac.yml`)**: Grants the Sandbox Server the necessary permissions to dynamically spawn and manage pods and services within the namespace.
+## 🔄 Architecture & Flow
 
-## Traffic Flow
+This diagram illustrates how sandboxes are dynamically provisioned, and how subsequent traffic (HTTP and HMR WebSockets) is routed:
 
-1. User requests a new environment via `/api/sandbox/start`.
-2. The Server provisions a new Pod + Service and returns `http://<id>.preview.localhost`.
-3. The user opens the preview URL in their browser.
-4. Traffic hits the Kubernetes **Ingress Controller**, which routes the wildcard domain to the **Router**.
-5. The **Router** extracts `<id>` from the host, and proxies the traffic directly to the pod's running Vite server.
+```mermaid
+graph TD
+    %% Nodes %%
+    User([User / Client])
+    
+    subgraph K8s [Kubernetes Cluster]
+        Ingress[Nginx Ingress Controller]
+        Router[Router Server]
+        Server[Sandbox Server]
+        
+        subgraph Pod [Sandbox Pod]
+            direction TB
+            Vite[Vite Container:5173]
+            Agent[Agent Container:3000]
+            Init[Init Container]
+            Volume[(Shared Workspace)]
+            
+            Init -- "Seeds workspace" --> Volume
+            Vite -- "Mounts" --> Volume
+            Agent -- "Mounts" --> Volume
+        end
+        
+        Service[Sandbox Service]
+    end
 
-## Getting Started
+    %% Provisioning flow %%
+    User -- "1. POST /api/sandbox/start" --> Ingress
+    Ingress -- "/api/sandbox/*" --> Server
+    Server -- "2. Creates Pod & Service" --> Pod
+    Server -- "3. Returns URLs" --> User
 
-### Prerequisites
-- Docker
-- A local Kubernetes cluster (e.g., Docker Desktop, Minikube, Kind) with an NGINX Ingress Controller installed.
+    %% Request Routing Flow %%
+    User -- "4. Accesses dynamic URLs" --> Ingress
+    Ingress -- "*.preview / *.agent" --> Router
+    Router -- "5. Extracts ID & Proxies" --> Service
+    Service -- "Port 80 -> 5173" --> Vite
+    Service -- "Port 3000 -> 3000" --> Agent
+```
 
-### Setup
+### 📋 Steps in the Flow:
+1. **Provisioning**: The client hits `POST /api/sandbox/start`. The **Sandbox Server** calls the Kubernetes API to launch a new Pod containing the Vite environment, the Agent sidecar, and a shared `/workspace` volume populated by an init-container. It also registers a corresponding cluster IP service.
+2. **Dynamic URLs**: The user receives custom subdomains:
+   - `http://<sandbox-id>.preview.localhost` (to view the Vite app)
+   - `http://<sandbox-id>.agent.localhost` (to talk to the workspace Agent API)
+3. **Ingress Entry**: The **Nginx Ingress** captures wildcard hosts (`*.preview.localhost` and `*.agent.localhost`) and routes them to the central **Router Server**.
+4. **Router Proxying**: The **Router** extracts the ID and type from the request hostname and proxies all requests (HTTP and WebSockets for HMR) directly to the matched internal Sandbox Service.
 
-1. **Build the Template Image:**
-   Navigate to `/sandbox/template` and run the sync script to build the image and load it into your local cluster:
-   ```powershell
-   cd sandbox/template
-   .\sync.ps1
-   ```
+---
 
-2. **Deploy the Services:**
-   Apply the Kubernetes manifests from the root directory:
-   ```shell
-   kubectl apply -f k8s
-   ```
+## ⚙️ Getting Started
 
-3. **Create a Sandbox:**
-   Send a POST request to `/api/sandbox/start` (via the ingress or port-forwarding the server) to launch your first sandbox.
+### 📦 Prerequisites
+- **Docker** & **Kubernetes** (e.g., Docker Desktop, Minikube, or Kind)
+- **NGINX Ingress Controller** enabled on your local cluster
+- **PowerShell** (for running the sync/build scripts)
+
+### 🚀 Setup Instructions
+
+#### 1. Build and Load Images
+First, build and load both the Vite workspace template and the agent sidecar image into your local cluster runtime.
+
+> [!NOTE]
+> Make sure your Kubernetes cluster is running before executing these scripts.
+
+* **Build Vite Template**:
+  ```powershell
+  cd sandbox/template
+  .\sync.ps1
+  ```
+* **Build Agent Sidecar**:
+  ```powershell
+  cd ../agent
+  .\sync.ps1
+  cd ../../
+  ```
+
+#### 2. Deploy Infrastructure
+Apply the deployment manifests, service accounts, and routing ingress configuration:
+```shell
+kubectl apply -f k8s
+```
+
+#### 3. Test Sandbox Creation
+Send a request to spin up a new environment:
+```http
+POST http://localhost/api/sandbox/start
+Content-Type: application/json
+```
+
+**Response Example:**
+```json
+{
+  "message": "Sandbox environment created successfully",
+  "sandboxId": "019e640e-802c-7035-ae2a-2efed8a2d4e4",
+  "previewUrl": "http://019e640e-802c-7035-ae2a-2efed8a2d4e4.preview.localhost",
+  "agentUrl": "http://019e640e-802c-7035-ae2a-2efed8a2d4e4.agent.localhost"
+}
+```
+
+> [!TIP]
+> Use the returned `previewUrl` to view your React app running inside the Kubernetes container. Open the `agentUrl` to test filesystem operations like `/list-files`.
