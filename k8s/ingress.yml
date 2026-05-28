@@ -6,6 +6,9 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-read-timeout: "6000"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "6000"
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "6000"
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+
+    nginx.ingress.kubernetes.io/websocket-services: "router-server"
   labels:
     app.kubernetes.io/name: codespace-ingress
 spec:

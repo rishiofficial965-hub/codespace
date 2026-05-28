@@ -2,21 +2,19 @@ import axios from "axios";
 import { tool } from "langchain";
 import { z } from "zod";
 
-const BASE_URL = "http://sandbox-service-019e6e23-f9d1-73a6-98c1-741a27babc65:3000";
+const BASE_URL = "http://sandbox-service-";
 
 // LIST FILES
 export const listFiles = tool(
-    async () => {
-        console.log("\n🔧 [TOOL] list-files called");
-        console.log(`   → GET ${BASE_URL}/list-files`);
-
+    async ({ }, config) => {
+        const writer = config.writer || (() => {});
+        writer("\n\n\nlisting files in project directory..\n\n\n")
         const response = await axios.get(
-            `${BASE_URL}/list-files`
+            `${BASE_URL}${config.configurable.projectId}:3000/list-files`
         );
 
         const files = response.data.files;
-        console.log(`   ✅ Got ${files.length} files:`, files);
-
+        writer(`\n\n\nfiles listed successfully\n\n\n`)
         return JSON.stringify(files);
     },
     {
@@ -28,19 +26,16 @@ export const listFiles = tool(
 
 // READ FILE
 export const readFile = tool(
-    async ({ files }) => {
-        console.log("\n🔧 [TOOL] read-file called");
-
+    async ({ files }, config) => {
+        const writer = config.writer || (() => {});
+        writer(`\n\n\nreading file ${files.join(",")}..\n\n\n`)
         if (!files || !Array.isArray(files) || files.length === 0) {
             console.error("   ❌ ERROR: 'files' argument is missing or empty!");
             throw new Error("read-file requires a 'files' array, e.g. { files: ['src/App.jsx'] }");
         }
 
-        console.log(`   → Reading files:`, files);
-        console.log(`   → GET ${BASE_URL}/read-files?files=${files.join(",")}`);
-
         const response = await axios.get(
-            `${BASE_URL}/read-files`,
+            `${BASE_URL}${config.configurable.projectId}:3000/read-files`,
             {
                 params: {
                     files: files.join(",")
@@ -49,12 +44,7 @@ export const readFile = tool(
         );
 
         const result = response.data.files;
-        console.log(`   ✅ Read ${result.length} file(s) successfully`);
-        result.forEach(entry => {
-            const [filePath, content] = Object.entries(entry)[0];
-            console.log(`   📄 ${filePath} (${content.length} chars)`);
-        });
-
+        writer(`\n\n\nfiles read successfully\n\n\n`)
         return JSON.stringify(result);
     },
     {
@@ -72,23 +62,17 @@ export const readFile = tool(
 
 // UPDATE FILE
 export const updateFile = tool(
-    async ({ updates }) => {
-        console.log("\n🔧 [TOOL] update-file called");
-        console.log(`   → Updating ${updates.length} file(s):`);
-        updates.forEach(u => {
-            console.log(`   ✏️  ${u.file} (${u.content.length} chars)`);
-        });
-        console.log(`   → PATCH ${BASE_URL}/update-files`);
-
+    async ({ updates }, config) => {
+        const writer = config.writer || (() => {});
+        writer(`\n\n\nUpdating file ${updates.map(u => u.file).join(",")}..\n`)
         const response = await axios.patch(
-            `${BASE_URL}/update-files`,
+            `${BASE_URL}${config.configurable.projectId}:3000/update-files`,
             {
                 updates
             }
         );
 
-        console.log(`   ✅ Update successful`);
-
+        writer(`\n\n\nfile updated successfully\n\n\n`)
         return JSON.stringify(response.data.files);
     },
     {
@@ -116,23 +100,18 @@ export const updateFile = tool(
 
 // CREATE FILE
 export const createFile = tool(
-    async ({ files }) => {
-        console.log("\n🔧 [TOOL] create-file called");
-        console.log(`   → Creating ${files.length} file(s):`);
-        files.forEach(f => {
-            console.log(`   📝 ${f.file} (${f.content.length} chars)`);
-        });
-        console.log(`   → POST ${BASE_URL}/create-file`);
+    async ({ files }, config) => {
+
+        const writer = config.writer || (() => {});
+        writer(`\n\n\nCreating file ${files.map(f => f.file).join(",")}..\n\n\n`)
 
         const response = await axios.post(
-            `${BASE_URL}/create-files`,
+            `${BASE_URL}${config.configurable.projectId}:3000/create-files`,
             {
                 files
             }
         );
-
-        console.log(`   ✅ Files created successfully`);
-
+        writer("\n\n\nfiles created successfully\n\n\n")
         return JSON.stringify(response.data.files);
     },
     {
@@ -160,13 +139,13 @@ export const createFile = tool(
 
 // DELETE FILE
 export const deleteFile = tool(
-    async ({ path }) => {
-        console.log("\n🔧 [TOOL] delete-file called");
-        console.log(`   → Deleting path: ${path}`);
-        console.log(`   → DELETE ${BASE_URL}/delete-path`);
+    async ({ path }, config) => {
+
+        const writer = config.writer || (() => {});
+        writer(`\n\n\nDeleting file ${path}..\n\n\n`)
 
         const response = await axios.delete(
-            `${BASE_URL}/delete-path`,
+            `${BASE_URL}${config.configurable.projectId}:3000/delete-path`,
             {
                 data: {
                     path
@@ -174,8 +153,7 @@ export const deleteFile = tool(
             }
         );
 
-        console.log(`   ✅ Deleted successfully: ${path}`);
-
+        writer("\n\n\nfile deleted successfully\n\n\n")
         return JSON.stringify(response.data);
     },
     {
