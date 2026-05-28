@@ -28,13 +28,13 @@ spec:
             cpu: "250m"
         livenessProbe:
           httpGet:
-            path: /api/sandbox/health
+            path: /api/sandbox/healthz
             port: 3000
           initialDelaySeconds: 15
           periodSeconds: 5
         readinessProbe:
           httpGet:
-            path: /api/sandbox/health
+            path: /api/sandbox/readyz
             port: 3000
           initialDelaySeconds: 15
           periodSeconds: 5

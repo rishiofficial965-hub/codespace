@@ -14,8 +14,12 @@ app.use(morgan("dev"))
 app.use(express.urlencoded({ extended: true }))
 
 //Routes
-app.get("/api/sandbox/health", (req, res) => {
-    res.status(200).json({ message: "OK" })
+app.get("/api/sandbox/healthz", (req, res) => {
+    res.status(200).json({ message: "Sandbox is healthy" })
+})
+
+app.get("/api/sandbox/readyz", (req, res) => {
+    res.status(200).json({ message: "Sandbox is ready" })
 })
 
 app.post("/api/sandbox/start", async (req, res) => {

@@ -100,46 +100,30 @@ graph TD
 
 ### 🚀 Setup Instructions
 
-#### 1. Build and Load Images
-First, build and load both the Vite workspace template and the agent sidecar image into your local cluster runtime.
+#### 1. Configure the Mistral API Key Secret
+The **AI Orchestrator** reads the Mistral API key from a Kubernetes secret. Create the `ai-secret` in your cluster with your key:
 
-> [!NOTE]
-> Make sure your Kubernetes cluster is running before executing these scripts.
-
-* **Build Vite Template**:
-  ```powershell
-  cd sandbox/template
-  .\sync.ps1
-  ```
-* **Build Agent Sidecar**:
-  ```powershell
-  cd ../agent
-  .\sync.ps1
-  cd ../../
-  ```
-
-#### 2. Deploy Infrastructure
-Apply the deployment manifests, service accounts, and routing ingress configuration:
 ```shell
-kubectl apply -f k8s
+kubectl create secret generic ai-secret --from-literal=MISTRAL_API_KEY="your_mistral_api_key_here"
 ```
 
-#### 3. Run AI Orchestrator
-Configure variables in `ai-orchestration/.env`:
-```env
-MISTRAL_API_KEY=your_mistral_api_key_here
-AGENT_URL=http://<active-sandbox-id>.agent.localhost
-```
+#### 2. Start the Development Stack with Skaffold
+The entire microservice architecture is orchestrated via Skaffold. This builds all components (orchestrator, agent, router, server, and template) and deploys them directly to your cluster, watching for live file changes:
 
-Install dependencies and start the service:
 ```shell
-cd ai-orchestration
-npm install
-npm run dev
+skaffold dev
 ```
 
-#### 4. Test Sandbox Creation
-Send a request to spin up a new environment:
+> [!TIP]
+> Skaffold will build all images, deploy them to Kubernetes, set up the NGINX Ingress Controller routing rules, and stream all logs directly to your console.
+
+---
+
+## 💻 How to Use the Platform
+
+### 1. Provision a Sandbox Environment
+To dynamically spin up a new containerized React+Vite sandbox workspace alongside its Agent sidecar, send a POST request to the Sandbox Server:
+
 ```http
 POST http://localhost/api/sandbox/start
 Content-Type: application/json
@@ -149,14 +133,46 @@ Content-Type: application/json
 ```json
 {
   "message": "Sandbox environment created successfully",
-  "sandboxId": "019e640e-802c-7035-ae2a-2efed8a2d4e4",
-  "previewUrl": "http://019e640e-802c-7035-ae2a-2efed8a2d4e4.preview.localhost",
-  "agentUrl": "http://019e640e-802c-7035-ae2a-2efed8a2d4e4.agent.localhost"
+  "sandboxId": "019e6e23-f9d1-73a6-98c1-741a27babc65",
+  "previewUrl": "http://019e6e23-f9d1-73a6-98c1-741a27babc65.preview.localhost",
+  "agentUrl": "http://019e6e23-f9d1-73a6-98c1-741a27babc65.agent.localhost"
 }
 ```
 
-> [!TIP]
-> Use the returned `previewUrl` to view your React app running inside the Kubernetes container. Open the `agentUrl` to test filesystem operations like `/list-files`.
+* **`previewUrl`**: Open this in your browser to see the live React + Vite app (with fully functional Hot Module Replacement!).
+* **`agentUrl`**: Used by the AI Orchestration service to query and write to the sandbox's shared filesystem.
+
+---
+
+### 2. Invoke the Workspace AI Agent
+You can instruct the LangGraph-powered AI Agent to perform complete software engineering tasks directly in the live sandbox environment.
+
+The agent will automatically list your files, read their content, design changes, and update files using its suite of workspace CRUD tools:
+
+```http
+POST http://localhost/api/ai/agent/invoke
+Content-Type: application/json
+
+{
+  "prompt": "Create a nice dark mode theme and add a toggle button to the UI"
+}
+```
+
+**Response:**
+```json
+{
+  "result": {
+    "messages": [
+      {
+        "role": "assistant",
+        "content": "I have successfully discovered the workspace structure, read the relevant components, and updated the CSS and components to add a beautiful dark-mode experience with a transition toggle. You should see the changes live on your browser!"
+      }
+    ]
+  }
+}
+```
+
+As soon as the agent completes the tool calls, Vite's live HMR updates the running browser app in less than a second!
 
 ---
 

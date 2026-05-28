@@ -1,9 +1,8 @@
 import axios from "axios";
 import { tool } from "langchain";
 import { z } from "zod";
-import { Config } from "../config/config.js";
 
-const BASE_URL = Config.Agent.baseUrl;
+const BASE_URL = "http://sandbox-service-019e6e23-f9d1-73a6-98c1-741a27babc65:3000";
 
 // LIST FILES
 export const listFiles = tool(
