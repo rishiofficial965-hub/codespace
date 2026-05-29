@@ -72,6 +72,8 @@ export function handleUpgrade(req, socket, head) {
     const sandboxId = parts[0]
     const routeType = parts[1]
 
+    refreshTTL(sandboxId).catch(err => console.error("Failed to refresh TTL on upgrade", err))
+
     if (routeType === 'agent') {
         const proxy = getAgentProxy(sandboxId)
         if (proxy && typeof proxy.upgrade === 'function') {

@@ -1,7 +1,35 @@
 import { k8sCoreV1Api } from "./config.js";
 
+let resolvedImages = null;
+
+async function resolveSandboxImages() {
+    if (resolvedImages) return resolvedImages;
+    resolvedImages = { templateImage: 'template', agentImage: 'agent' };
+    try {
+        const podName = process.env.HOSTNAME;
+        if (podName) {
+            console.log(`Resolving images using pod: ${podName}`);
+            const response = await k8sCoreV1Api.readNamespacedPod({
+                name: podName,
+                namespace: 'default'
+            });
+            console.log("K8s readNamespacedPod response keys:", Object.keys(response || {}));
+            const spec = response.spec || (response.body && response.body.spec);
+            const initContainers = spec ? (spec.initContainers || []) : [];
+            const dummyTemplate = initContainers.find(c => c.name === 'dummy-template');
+            const dummyAgent = initContainers.find(c => c.name === 'dummy-agent');
+            if (dummyTemplate) resolvedImages.templateImage = dummyTemplate.image;
+            if (dummyAgent) resolvedImages.agentImage = dummyAgent.image;
+            console.log(`Successfully resolved dynamic sandbox images from pod spec: template=${resolvedImages.templateImage}, agent=${resolvedImages.agentImage}`);
+        }
+    } catch (error) {
+        console.error("Failed to resolve dynamic sandbox images from pod spec, using fallbacks:", error.message);
+    }
+    return resolvedImages;
+}
 
 export async function createPod(sandboxId) {
+    const { templateImage, agentImage } = await resolveSandboxImages();
     const podManifest = {
         metadata: {
             name: `sandbox-pod-${sandboxId}`,
@@ -19,7 +47,7 @@ export async function createPod(sandboxId) {
             initContainers: [
                 {
                     name: 'init-container',
-                    image: 'template',
+                    image: templateImage,
                     imagePullPolicy: 'IfNotPresent',
                     command: ['sh', '-c', 'cp -r /workspace/. /seed/'],
                     volumeMounts: [
@@ -32,7 +60,7 @@ export async function createPod(sandboxId) {
             ],
             containers: [{
                 name: `sandbox-container`,
-                image: 'template',
+                image: templateImage,
                 imagePullPolicy: 'IfNotPresent',
                 ports: [{ containerPort: 5173, name: "http" }],
                 resources: {
@@ -54,7 +82,7 @@ export async function createPod(sandboxId) {
                 ]
             }, {
                 name: `agent-container`,
-                image: 'agent',
+                image: agentImage,
                 imagePullPolicy: 'IfNotPresent',
                 ports: [{ containerPort: 3000, name: "http" }],
                 resources: {

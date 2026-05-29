@@ -19,7 +19,7 @@ const subscriber = new Redis(Config.redisUrl)
 export async function createSandboxKey(sandboxId) {
     await redis.set(`sandbox:${sandboxId}`, JSON.stringify({
         status: 'active'
-    }), 'EX', 40)
+    }), 'EX', 10*60)
 }
 
 subscriber.config('SET', 'notify-keyspace-events', 'Ex')

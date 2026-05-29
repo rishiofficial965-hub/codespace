@@ -30,7 +30,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: ai-secret
-              key: MISTRAL_API_KEY
+              key: mistralapi
         livenessProbe:
           httpGet:
             path: /api/ai/healthz

@@ -13,7 +13,7 @@ redis.on('error', (err) => {
 
 
 export async function refreshTTL(sandboxId) {
-    await redis.expire(`sandbox:${sandboxId}`, 40)
+    await redis.expire(`sandbox:${sandboxId}`, 300)
 }
 
 

@@ -15,6 +15,13 @@ spec:
         app: sandbox
     spec:
       serviceAccountName: resource-manager
+      initContainers:
+        - name: dummy-template
+          image: template
+          command: ["sh", "-c", "echo 'dummy template'"]
+        - name: dummy-agent
+          image: agent
+          command: ["sh", "-c", "echo 'dummy agent'"]
       containers:
       - image: sandbox:v1
         imagePullPolicy: IfNotPresent
