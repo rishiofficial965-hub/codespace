@@ -36,6 +36,7 @@ lerna-debug.log*
 
 # Docker
 *.tar
+.tmp-*.tar*
 
 # IDEs and Editors
 .vscode/
