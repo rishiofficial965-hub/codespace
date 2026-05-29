@@ -52,7 +52,6 @@ export default function TerminalPanel() {
 
     const socket = io(agentSocketOrigin(sandboxId), {
       path: agentSocketPath(sandboxId),
-      transports: ['websocket'],
       reconnectionAttempts: 5,
     });
     socketInstance.current = socket;
