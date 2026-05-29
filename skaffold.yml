@@ -7,22 +7,44 @@ build:
       context: ai-orchestration
       docker:
         dockerfile: dockerfile
+      sync:
+        infer:
+          - "src/**"
     - image: agent
       context: sandbox/agent
       docker:
         dockerfile: dockerfile
+      sync:
+        infer:
+          - "src/**"
     - image: router
       context: sandbox/router
       docker:
         dockerfile: dockerfile
+      sync:
+        infer:
+          - "src/**"
     - image: sandbox
       context: sandbox/server
       docker:
         dockerfile: dockerfile
+      sync:
+        infer:
+          - "src/**"
     - image: template
       context: sandbox/template
       docker:
         dockerfile: dockerfile
+      sync:
+        infer:
+          - "src/**"
+    - image: auth
+      context: auth
+      docker:
+        dockerfile: dockerfile
+      sync:
+        infer:
+          - "src/**"
 
 
 manifests:
@@ -35,3 +57,5 @@ manifests:
     - k8s/sandbox-deployment.yml
     - k8s/sandbox-service.yml
     - k8s/ingress.yml
+    - k8s/auth-deployment.yml
+    - k8s/auth-service.yml

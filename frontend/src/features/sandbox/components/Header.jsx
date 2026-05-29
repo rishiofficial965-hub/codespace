@@ -1,6 +1,6 @@
 import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { RefreshCw, Trash2 } from 'lucide-react';
+import { RefreshCw, Trash2, ShieldCheck, Sparkles, Terminal, Activity, HelpCircle } from 'lucide-react';
 import { destroySandbox, incrementPreviewKey } from '../state/sandboxSlice';
 import { resetChat } from '../state/chatSlice';
 import { resetUi } from '../state/uiSlice';
@@ -18,35 +18,72 @@ export default function Header() {
   };
 
   return (
-    <header className="h-14 border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-md px-4 flex items-center justify-between z-20">
+    <header className="h-9 border-b border-white/[0.06] bg-[#0a0f14] px-3 flex items-center justify-between z-20 shrink-0 select-none">
+      
+      {/* Left side: IDE logo & details */}
       <div className="flex items-center gap-3">
+        {/* Antigravity SVG white logo */}
         <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)] animate-pulse"></span>
-          <span className="font-semibold text-slate-200 tracking-wide text-sm font-mono select-none">ANTIGRAVITY_IDE</span>
+          <svg className="w-4 h-4 text-white" viewBox="0 0 100 100" fill="currentColor">
+            <path d="M50 15L85 80H70L50 42L30 80H15L50 15Z" />
+          </svg>
+          <span className="font-semibold text-slate-100 tracking-wide text-[11px] font-sans">Antigravity IDE</span>
         </div>
-        <span className="text-slate-700 select-none">|</span>
-        <div className="flex items-center gap-1.5 bg-slate-950/80 border border-slate-800/80 rounded-md px-2 py-0.5 text-xs text-slate-400 font-mono">
-          <span>ID:</span>
-          <span className="text-indigo-400 font-semibold">{sandboxId ? `${sandboxId.substring(0, 8)}...` : 'N/A'}</span>
+        <span className="text-white/[0.04] text-xs">|</span>
+        
+        {/* Folder tag */}
+        <div className="flex items-center gap-1 text-[10px] text-slate-500 font-sans">
+          <span>workspace:</span>
+          <span className="text-slate-300 font-semibold bg-white/[0.02] border border-white/[0.04] px-1.5 py-0.5 rounded">capstone</span>
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        <button 
-          onClick={() => dispatch(incrementPreviewKey())}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700/50 rounded-lg transition cursor-pointer font-mono"
-        >
-          <RefreshCw size={12} />
-          Hot Reload Preview
-        </button>
-        <button
-          onClick={handleDestroySandbox}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-rose-400 hover:text-rose-300 bg-rose-950/20 hover:bg-rose-950/40 border border-rose-900/30 hover:border-rose-900/50 rounded-lg transition cursor-pointer font-mono"
-        >
-          <Trash2 size={12} />
-          Exit Sandbox
-        </button>
+      {/* Center side: Global search placeholder */}
+      <div className="flex-1 max-w-sm mx-4 bg-slate-950/60 hover:bg-slate-950 border border-white/[0.04] hover:border-white/[0.08] rounded-md px-3 py-1 text-[10px] text-slate-500 font-sans flex items-center justify-between transition cursor-pointer select-none">
+        <span>Search files, commands, or ask AI agent...</span>
+        <div className="flex items-center gap-0.5 font-mono text-[8px] text-slate-600 bg-white/[0.01] border border-white/[0.04] px-1 rounded">
+          <span>Ctrl</span>
+          <span>+</span>
+          <span>P</span>
+        </div>
       </div>
+
+      {/* Right side: AI and Connection Status */}
+      <div className="flex items-center gap-3">
+        {/* Connection status node */}
+        <div className="flex items-center gap-1.5 bg-green-500/10 border border-green-500/20 rounded-md px-2 py-0.5 text-[9px] text-green-400 font-mono">
+          <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.6)] animate-pulse"></span>
+          <span>CONNECTED</span>
+        </div>
+
+        {/* AI Orchestrator service count */}
+        <div className="flex items-center gap-1 text-[10px] text-slate-500 font-sans">
+          <Activity size={10} className="text-slate-600" />
+          <span>Services:</span>
+          <span className="text-slate-300 font-bold bg-white/[0.02] px-1 rounded">3/3</span>
+        </div>
+
+        <div className="flex items-center gap-1.5 border-l border-white/[0.08] pl-3">
+          <button 
+            onClick={() => dispatch(incrementPreviewKey())}
+            className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-sans font-medium text-slate-300 hover:text-white bg-slate-900 border border-white/[0.04] hover:border-white/[0.08] rounded transition cursor-pointer"
+            title="Reload Preview"
+          >
+            <RefreshCw size={10} />
+            <span>Reload</span>
+          </button>
+          
+          <button
+            onClick={handleDestroySandbox}
+            className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-sans font-medium text-red-400 hover:text-red-300 bg-red-950/20 hover:bg-red-950/40 border border-red-900/30 hover:border-red-900/50 rounded transition cursor-pointer"
+            title="Release Sandbox Container"
+          >
+            <Trash2 size={10} />
+            <span>Exit</span>
+          </button>
+        </div>
+      </div>
+
     </header>
   );
 }

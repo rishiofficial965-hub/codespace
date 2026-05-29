@@ -185,3 +185,7 @@ The AI Agent utilizes a custom set of LangChain-wrapped tools in [tools.js](file
 * **`update-file`**: Overwrites full content of specified files using an `updates` array parameter containing the path and full content.
 * **`create-file`**: Creates brand new files using a `files` array parameter containing path and initial content.
 * **`delete-file`**: Permanently deletes a file/folder at a specified path.
+
+
+kubectl create secret generic auth-secret \
+  --from-env-file=.env

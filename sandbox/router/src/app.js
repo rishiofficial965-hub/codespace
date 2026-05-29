@@ -49,7 +49,7 @@ function getAgentProxy(sandboxId) {
 }
 
 app.use((req, res, next) => {
-    const host = req.headers.host
+    const host = req.headers.host || ""
     const parts = host.split('.')
 
     const sandboxId = parts[0]
@@ -63,5 +63,29 @@ app.use((req, res, next) => {
     }
     return res.status(400).send('Bad Request')
 })
+
+export function handleUpgrade(req, socket, head) {
+    const host = req.headers.host || ""
+    const parts = host.split('.')
+
+    const sandboxId = parts[0]
+    const routeType = parts[1]
+
+    if (routeType === 'agent') {
+        const proxy = getAgentProxy(sandboxId)
+        if (proxy && typeof proxy.upgrade === 'function') {
+            proxy.upgrade(req, socket, head)
+        }
+    }
+    else if (routeType === 'preview') {
+        const proxy = getProxyMiddleware(sandboxId)
+        if (proxy && typeof proxy.upgrade === 'function') {
+            proxy.upgrade(req, socket, head)
+        }
+    }
+    else {
+        socket.destroy()
+    }
+}
 
 export default app
