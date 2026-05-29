@@ -9,12 +9,17 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 5173,
     allowedHosts: true,
-    hmr: { clientPort: 80, protocol: 'ws' },
+    hmr: {
+      clientPort: 80,
+      protocol: 'ws',
+      timeout: 30000,
+    },
     watch: {
       usePolling: true,
-      interval: 300,
+      interval: 1000,
       ignored: [
-        'node_modules'
+        'node_modules',
+        '**/.git/**',
       ]
     }
   },
