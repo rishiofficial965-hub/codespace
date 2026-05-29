@@ -6,3 +6,4 @@ docker cp template.tar desktop-control-plane:/template.tar
 
 docker exec desktop-control-plane ctr -n k8s.io images import /template.tar
 
+kubectl delete pod -l app=template

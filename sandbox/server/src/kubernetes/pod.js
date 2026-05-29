@@ -10,9 +10,9 @@ export async function createPod(sandboxId) {
             }
         },
         spec: {
-            volumes:[
+            volumes: [
                 {
-                    name:"workspace-volume",
+                    name: "workspace-volume",
                     emptyDir: {}
                 }
             ],
@@ -24,8 +24,8 @@ export async function createPod(sandboxId) {
                     command: ['sh', '-c', 'cp -r /workspace/. /seed/'],
                     volumeMounts: [
                         {
-                            name:"workspace-volume",
-                            mountPath:"/seed"
+                            name: "workspace-volume",
+                            mountPath: "/seed"
                         }
                     ]
                 }
@@ -46,13 +46,13 @@ export async function createPod(sandboxId) {
                         cpu: "2000m"
                     }
                 },
-                volumeMounts:[
+                volumeMounts: [
                     {
-                        name:"workspace-volume",
-                        mountPath:"/workspace"
+                        name: "workspace-volume",
+                        mountPath: "/workspace"
                     }
                 ]
-            },{
+            }, {
                 name: `agent-container`,
                 image: 'agent',
                 imagePullPolicy: 'IfNotPresent',
@@ -68,10 +68,10 @@ export async function createPod(sandboxId) {
                         cpu: "2000m"
                     }
                 },
-                volumeMounts:[
+                volumeMounts: [
                     {
-                        name:"workspace-volume",
-                        mountPath:"/workspace"
+                        name: "workspace-volume",
+                        mountPath: "/workspace"
                     }
                 ]
             }]
@@ -82,4 +82,31 @@ export async function createPod(sandboxId) {
         { namespace: 'default', body: podManifest }
     )
     return response;
+}
+
+export async function deletePod(sandboxId) {
+    try {
+        const response = await k8sCoreV1Api.deleteNamespacedPod({
+            namespace: "default",
+            name: `sandbox-pod-${sandboxId}`
+        }, {
+            gracePeriodSeconds: 0
+        })
+        return response
+    } catch (error) {
+        console.log(`failed to delete pod ${error.body.message}`)
+    }
+
+}
+
+export async function deleteService(sandboxId) {
+    try {
+        const response = await k8sCoreV1Api.deleteNamespacedService({
+            namespace: "default",
+            name: `sandbox-service-${sandboxId}`
+        })
+        return response
+    } catch (error) {
+        console.log(`failed to delete service ${error.body.message}`)
+    }
 }

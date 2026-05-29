@@ -26,6 +26,12 @@ spec:
           requests:
             memory: "512Mi"
             cpu: "1000m"
+        env:
+          - name: REDIS_URL
+            valueFrom:
+              secretKeyRef:
+                name: redis-secret
+                key: redis
         livenessProbe:
           httpGet:
             path: /api/sandbox/healthz

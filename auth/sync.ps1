@@ -6,3 +6,4 @@ docker cp auth.tar desktop-control-plane:/auth.tar
 
 docker exec desktop-control-plane ctr -n k8s.io images import /auth.tar
 
+kubectl delete pod -l app=auth

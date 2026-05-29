@@ -187,5 +187,5 @@ The AI Agent utilizes a custom set of LangChain-wrapped tools in [tools.js](file
 * **`delete-file`**: Permanently deletes a file/folder at a specified path.
 
 
-kubectl create secret generic auth-secret \
-  --from-env-file=.env
+
+
