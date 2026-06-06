@@ -6,27 +6,30 @@ A lightweight, cloud-native development environment engine (similar to GitHub Co
 
 ## 🏗️ Architecture & Component Overview
 
-The system is composed of five core microservices and custom routing rules deployed to Kubernetes:
+The system is composed of six core microservices, a frontend client dashboard, and custom routing rules deployed to Kubernetes:
 
-| Service | Path | Tech Stack | Role |
+| Service / Component | Path | Tech Stack | Role |
 | :--- | :--- | :--- | :--- |
 | **Sandbox Server** | [sandbox/server](file:///c:/Users/Rishi/Desktop/capstone/sandbox/server) | Express, K8s Client SDK | Dynamically provisions Pods and Services in Kubernetes on user demand. |
-| **Router Server** | [sandbox/router](file:///c:/Users/Rishi/Desktop/capstone/sandbox/router) | Express, `http-proxy-middleware` | Inspects subdomains and dynamically proxies HTTP/WebSocket traffic to active sandboxes. |
+| **Router Server** | [sandbox/router](file:///c:/Users/Rishi/Desktop/capstone/sandbox/router) | Express, `http-proxy-middleware`, Redis | Inspects subdomains and dynamically proxies HTTP/WebSocket traffic to active sandboxes. |
 | **Vite Template** | [sandbox/template](file:///c:/Users/Rishi/Desktop/capstone/sandbox/template) | React, Vite, TailwindCSS | The baseline workspace template running inside sandbox pods. |
 | **Agent Sidecar** | [sandbox/agent](file:///c:/Users/Rishi/Desktop/capstone/sandbox/agent) | Express | A sidecar container inside the sandbox pod for workspace filesystem operations. |
-| **AI Orchestrator** | [ai-orchestration](file:///c:/Users/Rishi/Desktop/capstone/ai-orchestration) | Node.js, LangGraph, Mistral AI | Run LLM coding agents using workspace file operations as executable tools. |
+| **AI Orchestrator** | [ai-orchestration](file:///c:/Users/Rishi/Desktop/capstone/ai-orchestration) | Node.js, LangGraph, Mistral AI | Runs LLM coding agents using workspace file operations as executable tools. |
+| **Auth Service** | [auth](file:///c:/Users/Rishi/Desktop/capstone/auth) | Express, Passport.js, MongoDB, Brevo | Handles user registration, login, email OTP verification, and Google OAuth. |
+| **Frontend Dashboard** | [frontend](file:///c:/Users/Rishi/Desktop/capstone/frontend) | React, Vite, TailwindCSS, Redux, Xterm.js | Developer control panel to start/stop sandboxes, use the AI chat agent, edit files, and view previews. |
 
 ---
 
 ## 🔄 Architecture & Flow
 
-This diagram illustrates how sandboxes are dynamically provisioned, how traffic is routed, and how the **AI Orchestration** loop automatically updates code in real-time:
+This diagram illustrates how sandboxes are dynamically provisioned, how traffic is routed, and how the **AI Orchestration** and **Authentication** flows are structured:
 
 ```mermaid
 graph TD
     %% Nodes %%
     User([User / Client])
     AI_Client([AI Client / Prompt UI])
+    MongoDB[(MongoDB Atlas)]
     
     subgraph AI_Orch [AI Orchestrator Service]
         LangGraphAgent[LangGraph Agent]
@@ -38,6 +41,7 @@ graph TD
         Ingress[Nginx Ingress Controller]
         Router[Router Server]
         Server[Sandbox Server]
+        Auth[Auth Service]
         
         subgraph Pod [Sandbox Pod]
             direction TB
@@ -53,6 +57,11 @@ graph TD
         
         Service[Sandbox Service]
     end
+
+    %% Authentication flow %%
+    User -- "0. Authenticate & Verify OTP" --> Ingress
+    Ingress -- "/api/auth/*" --> Auth
+    Auth -- "Save/Read Users" --> MongoDB
 
     %% Provisioning flow %%
     User -- "1. POST /api/sandbox/start" --> Ingress
@@ -80,13 +89,14 @@ graph TD
 ```
 
 ### 📋 Steps in the Flow:
-1. **Provisioning**: The client hits `POST /api/sandbox/start`. The **Sandbox Server** calls the Kubernetes API to launch a new Pod containing the Vite environment, the Agent sidecar, and a shared `/workspace` volume populated by an init-container. It also registers a corresponding cluster IP service.
-2. **Dynamic URLs**: The user receives custom subdomains:
+1. **Authentication**: The client logs in, registers, or authenticates via Google OAuth. The requests hit the ingress and route to the **Auth Service** under `/api/auth/*`.
+2. **Provisioning**: The client hits `POST /api/sandbox/start`. The **Sandbox Server** calls the Kubernetes API to launch a new Pod containing the Vite environment, the Agent sidecar, and a shared `/workspace` volume populated by an init-container. It also registers a corresponding cluster IP service.
+3. **Dynamic URLs**: The user receives custom subdomains:
    - `http://<sandbox-id>.preview.localhost` (to view the Vite app)
    - `http://<sandbox-id>.agent.localhost` (to talk to the workspace Agent API)
-3. **Ingress Entry**: The **Nginx Ingress** captures wildcard hosts (`*.preview.localhost` and `*.agent.localhost`) and routes them to the central **Router Server**.
-4. **Router Proxying**: The **Router** extracts the ID and type from the request hostname and proxies all requests (HTTP and WebSockets for HMR) directly to the matched internal Sandbox Service.
-5. **AI Coding Loop**: When the user requests an AI-driven edit, the **AI Orchestrator** loads a LangGraph reactive agent using the Mistral API. The agent can invoke tools in [tools.js](file:///c:/Users/Rishi/Desktop/capstone/ai-orchestration/src/agents/tools.js) to list, read, update, or create files on the workspace. These tools map to REST calls forwarded to the **Agent Sidecar**'s endpoints, writing directly to the shared workspace. The Vite watcher instantly detects edits and triggers HMR updates to the client's screen.
+4. **Ingress Entry**: The **Nginx Ingress** captures wildcard hosts (`*.preview.localhost` and `*.agent.localhost`) and routes them to the central **Router Server**.
+5. **Router Proxying**: The **Router** extracts the ID and type from the request hostname and proxies all requests (HTTP and WebSockets for HMR) directly to the matched internal Sandbox Service.
+6. **AI Coding Loop**: When the user requests an AI-driven edit, the **AI Orchestrator** loads a LangGraph reactive agent using the Mistral API. The agent can invoke tools in [tools.js](file:///c:/Users/Rishi/Desktop/capstone/ai-orchestration/src/agents/tools.js) to list, read, update, or create files on the workspace. These tools map to REST calls forwarded to the **Agent Sidecar**'s endpoints, writing directly to the shared workspace. The Vite watcher instantly detects edits and triggers HMR updates to the client's screen.
 
 ---
 
@@ -97,25 +107,68 @@ graph TD
 - **NGINX Ingress Controller** enabled on your local cluster
 - **PowerShell** (for running the sync/build scripts)
 - **Mistral API Key** (for running the AI Orchestration layer)
+- **Node.js** (for running the frontend locally)
 
 ### 🚀 Setup Instructions
 
-#### 1. Configure the Mistral API Key Secret
-The **AI Orchestrator** reads the Mistral API key from a Kubernetes secret. Create the `ai-secret` in your cluster with your key:
+#### 1. Configure Kubernetes Secrets
+The services require key environment variables stored as Kubernetes secrets:
 
+##### A. Mistral AI Secret (`ai-secret`)
+The **AI Orchestrator** reads the Mistral API key from the `ai-secret` secret. Create the secret using the `mistralapi` key:
 ```shell
-kubectl create secret generic ai-secret --from-literal=MISTRAL_API_KEY="your_mistral_api_key_here"
+kubectl create secret generic ai-secret --from-literal=mistralapi="your_mistral_api_key_here"
+```
+
+##### B. Redis Secret (`redis-secret`)
+The router and sandbox servers use Redis for dynamic routing configuration. Create the `redis-secret` containing your Redis URL:
+```shell
+kubectl create secret generic redis-secret --from-literal=redis="redis://your-redis-host:6379"
+```
+
+##### C. Auth Service Secret (`auth-secret`)
+The authentication service connects to MongoDB, handles Google OAuth, and sends emails via Brevo. Create a `.env` file inside the [auth](file:///c:/Users/Rishi/Desktop/capstone/auth) directory with the following variables:
+```env
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GOOGLE_CALLBACK_URL=http://localhost:5173/api/auth/google/callback
+AUTH_MONGO_URI=mongodb+srv://...
+JWT_SECRET=your_jwt_secret
+BREVO_API_KEY=your_brevo_api_key
+BREVO_SENDER_EMAIL=your_sender_email
+```
+Then create the generic secret using the command:
+```shell
+kubectl create secret generic auth-secret --from-env-file=.env
 ```
 
 #### 2. Start the Development Stack with Skaffold
-The entire microservice architecture is orchestrated via Skaffold. This builds all components (orchestrator, agent, router, server, and template) and deploys them directly to your cluster, watching for live file changes:
+The entire backend microservice architecture is orchestrated via Skaffold. This builds all components (orchestrator, agent, router, server, template, auth) and deploys them to your cluster, watching for live file changes:
 
 ```shell
 skaffold dev
 ```
 
 > [!TIP]
-> Skaffold will build all images, deploy them to Kubernetes, set up the NGINX Ingress Controller routing rules, and stream all logs directly to your console.
+> Skaffold will build all container images, deploy them to Kubernetes, set up NGINX Ingress Controller routing rules, and stream all logs to your console.
+
+#### 3. Run the Frontend Dashboard Locally
+To interact with the environment sandbox and chat agent, run the React frontend dashboard locally:
+
+1. Navigate to the `frontend` directory:
+   ```shell
+   cd frontend
+   ```
+2. Install the package dependencies:
+   ```shell
+   npm install
+   ```
+3. Start the Vite dev server:
+   ```shell
+   npm run dev
+   ```
+4. Open your browser and navigate to `http://localhost:5173` to access the dashboard.
+   *(The dev server is pre-configured to proxy `/api` and `/sandbox-agent` requests to your Kubernetes ingress at `http://127.0.0.1` automatically).*
 
 ---
 
