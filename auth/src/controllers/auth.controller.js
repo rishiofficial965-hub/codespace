@@ -2,9 +2,7 @@ import userModel from "../model/user.model.js";
 import jwt from "jsonwebtoken";
 import { Config } from "../config/dotenv.js";
 import { generateOTP } from "../utils/generateOTP.js";
-import { sendEmail } from "../utils/sendEmail.js";
-import { otpTemplate, resetPasswordTemplate } from "../utils/emailTemplate.js";
-import { sendAuthNotification } from "../config/mq.js";
+import { sendAuthNotification, sendOTPNotification } from "../config/mq.js";
 
 function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -75,15 +73,17 @@ export const registerHandler = async (req, res) => {
         fullname,
       }
     })
-    const htmlContent = otpTemplate(otp, fullname);
-
     try {
-      await sendEmail(
-        email,
-        "Verify Your Email — Codespace",
-        `Your OTP is ${otp}`,
-        htmlContent,
-      );
+      await sendOTPNotification({
+        userId: user._id,
+        action: 'otp',
+        timestamp: new Date(),
+        data: {
+          username:user.fullname,
+          email,
+          otp
+        }
+      });
     } catch (emailError) {
       console.error("Registration email failed:", emailError.message);
     }
@@ -167,7 +167,7 @@ export const googleCallbackHandler = async (req, res) => {
         timestamp: new Date(),
         data: {
           email,
-          fullname,
+          fullname: displayName,
         }
       })
     }
@@ -279,13 +279,16 @@ export const sendOTP = async (req, res) => {
     };
     await user.save();
 
-    const htmlContent = otpTemplate(otp, user.fullname);
-    await sendEmail(
-      user.email,
-      "Verify Your Email — Snitch",
-      `Your OTP is ${otp}`,
-      htmlContent,
-    );
+    await sendOTPNotification({
+        userId: user._id,
+        action: 'otp',
+        timestamp: new Date(),
+        data: {
+          username: user.fullname,
+          email: user.email,
+          otp
+        }
+      });
 
     return res
       .status(200)
@@ -334,13 +337,16 @@ export const forgetPassword = async (req, res) => {
     };
     await user.save();
 
-    const htmlContent = resetPasswordTemplate(otp, user.fullname);
-    await sendEmail(
-      user.email,
-      "Reset Your Password — Codespace",
-      `Your OTP is ${otp}`,
-      htmlContent,
-    );
+    await sendOTPNotification({
+        userId: user._id,
+        action: 'reset',
+        timestamp: new Date(),
+        data: {
+          username: user.fullname,
+          email: user.email,
+          otp
+        }
+      });
 
     return res.status(200).json({
       success: true,
