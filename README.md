@@ -1,12 +1,12 @@
 # ⚡ Capstone: Dynamic Cloud Sandbox Environments
 
-A lightweight, cloud-native development environment engine (similar to GitHub Codespaces) that dynamically provisions containerized React+Vite workspaces on-demand in a Kubernetes cluster, served under secure subdomains with real-time Hot Module Replacement (HMR). Now supercharged with an AI-driven workspace agent for automated file editing and sandbox orchestration.
+A lightweight, cloud-native development environment engine (similar to GitHub Codespaces) that dynamically provisions containerized React+Vite workspaces on-demand in a Kubernetes cluster, served under secure subdomains with real-time Hot Module Replacement (HMR). Supercharged with an AI-driven workspace agent for automated file editing, sandbox orchestration, and an event-driven notification system powered by RabbitMQ.
 
 ---
 
 ## 🏗️ Architecture & Component Overview
 
-The system is composed of six core microservices, a frontend client dashboard, and custom routing rules deployed to Kubernetes:
+The system is composed of seven core microservices, a frontend client dashboard, and custom routing rules deployed to Kubernetes:
 
 | Service / Component | Path | Tech Stack | Role |
 | :--- | :--- | :--- | :--- |
@@ -15,14 +15,15 @@ The system is composed of six core microservices, a frontend client dashboard, a
 | **Vite Template** | [sandbox/template](file:///c:/Users/Rishi/Desktop/capstone/sandbox/template) | React, Vite, TailwindCSS | The baseline workspace template running inside sandbox pods. |
 | **Agent Sidecar** | [sandbox/agent](file:///c:/Users/Rishi/Desktop/capstone/sandbox/agent) | Express | A sidecar container inside the sandbox pod for workspace filesystem operations. |
 | **AI Orchestrator** | [ai-orchestration](file:///c:/Users/Rishi/Desktop/capstone/ai-orchestration) | Node.js, LangGraph, Mistral AI | Runs LLM coding agents using workspace file operations as executable tools. |
-| **Auth Service** | [auth](file:///c:/Users/Rishi/Desktop/capstone/auth) | Express, Passport.js, MongoDB, Brevo | Handles user registration, login, email OTP verification, and Google OAuth. |
+| **Auth Service** | [auth](file:///c:/Users/Rishi/Desktop/capstone/auth) | Express, Passport.js, MongoDB, RabbitMQ | Handles user registration, login, OTP verification, and Google OAuth. Publishes events to RabbitMQ. |
+| **Notification Service** | [notification](file:///c:/Users/Rishi/Desktop/capstone/notification) | Express, RabbitMQ, Brevo | Consumes auth events from RabbitMQ queues and sends transactional emails (welcome, OTP, password reset). |
 | **Frontend Dashboard** | [frontend](file:///c:/Users/Rishi/Desktop/capstone/frontend) | React, Vite, TailwindCSS, Redux, Xterm.js | Developer control panel to start/stop sandboxes, use the AI chat agent, edit files, and view previews. |
 
 ---
 
 ## 🔄 Architecture & Flow
 
-This diagram illustrates how sandboxes are dynamically provisioned, how traffic is routed, and how the **AI Orchestration** and **Authentication** flows are structured:
+This diagram illustrates how sandboxes are dynamically provisioned, how traffic is routed, and how the **AI Orchestration**, **Authentication**, and **Notification** flows are structured:
 
 ```mermaid
 graph TD
@@ -30,6 +31,7 @@ graph TD
     User([User / Client])
     AI_Client([AI Client / Prompt UI])
     MongoDB[(MongoDB Atlas)]
+    RabbitMQ{{RabbitMQ Broker}}
     
     subgraph AI_Orch [AI Orchestrator Service]
         LangGraphAgent[LangGraph Agent]
@@ -42,6 +44,7 @@ graph TD
         Router[Router Server]
         Server[Sandbox Server]
         Auth[Auth Service]
+        Notif[Notification Service]
         
         subgraph Pod [Sandbox Pod]
             direction TB
@@ -62,6 +65,11 @@ graph TD
     User -- "0. Authenticate & Verify OTP" --> Ingress
     Ingress -- "/api/auth/*" --> Auth
     Auth -- "Save/Read Users" --> MongoDB
+
+    %% Event-Driven Notification flow %%
+    Auth -- "Publishes events" --> RabbitMQ
+    RabbitMQ -- "Consumes queues" --> Notif
+    Notif -- "Sends transactional email" --> User
 
     %% Provisioning flow %%
     User -- "1. POST /api/sandbox/start" --> Ingress
@@ -90,13 +98,14 @@ graph TD
 
 ### 📋 Steps in the Flow:
 1. **Authentication**: The client logs in, registers, or authenticates via Google OAuth. The requests hit the ingress and route to the **Auth Service** under `/api/auth/*`.
-2. **Provisioning**: The client hits `POST /api/sandbox/start`. The **Sandbox Server** calls the Kubernetes API to launch a new Pod containing the Vite environment, the Agent sidecar, and a shared `/workspace` volume populated by an init-container. It also registers a corresponding cluster IP service.
-3. **Dynamic URLs**: The user receives custom subdomains:
+2. **Event-Driven Notifications**: On registration, OTP verification, or password reset, the **Auth Service** publishes an event to a RabbitMQ queue. The **Notification Service** consumes these events and sends transactional emails (welcome emails, OTP codes, password resets) via Brevo.
+3. **Provisioning**: The client hits `POST /api/sandbox/start`. The **Sandbox Server** calls the Kubernetes API to launch a new Pod containing the Vite environment, the Agent sidecar, and a shared `/workspace` volume populated by an init-container. It also registers a corresponding cluster IP service.
+4. **Dynamic URLs**: The user receives custom subdomains:
    - `http://<sandbox-id>.preview.localhost` (to view the Vite app)
    - `http://<sandbox-id>.agent.localhost` (to talk to the workspace Agent API)
-4. **Ingress Entry**: The **Nginx Ingress** captures wildcard hosts (`*.preview.localhost` and `*.agent.localhost`) and routes them to the central **Router Server**.
-5. **Router Proxying**: The **Router** extracts the ID and type from the request hostname and proxies all requests (HTTP and WebSockets for HMR) directly to the matched internal Sandbox Service.
-6. **AI Coding Loop**: When the user requests an AI-driven edit, the **AI Orchestrator** loads a LangGraph reactive agent using the Mistral API. The agent can invoke tools in [tools.js](file:///c:/Users/Rishi/Desktop/capstone/ai-orchestration/src/agents/tools.js) to list, read, update, or create files on the workspace. These tools map to REST calls forwarded to the **Agent Sidecar**'s endpoints, writing directly to the shared workspace. The Vite watcher instantly detects edits and triggers HMR updates to the client's screen.
+5. **Ingress Entry**: The **Nginx Ingress** captures wildcard hosts (`*.preview.localhost` and `*.agent.localhost`) and routes them to the central **Router Server**.
+6. **Router Proxying**: The **Router** extracts the ID and type from the request hostname and proxies all requests (HTTP and WebSockets for HMR) directly to the matched internal Sandbox Service.
+7. **AI Coding Loop**: When the user requests an AI-driven edit, the **AI Orchestrator** loads a LangGraph reactive agent using the Mistral API. The agent can invoke tools in [tools.js](file:///c:/Users/Rishi/Desktop/capstone/ai-orchestration/src/agents/tools.js) to list, read, update, or create files on the workspace. These tools map to REST calls forwarded to the **Agent Sidecar**'s endpoints, writing directly to the shared workspace. The Vite watcher instantly detects edits and triggers HMR updates to the client's screen.
 
 ---
 
@@ -127,7 +136,7 @@ kubectl create secret generic redis-secret --from-literal=redis="redis://your-re
 ```
 
 ##### C. Auth Service Secret (`auth-secret`)
-The authentication service connects to MongoDB, handles Google OAuth, and sends emails via Brevo. Create a `.env` file inside the [auth](file:///c:/Users/Rishi/Desktop/capstone/auth) directory with the following variables:
+The authentication and notification services share the `auth-secret`. It connects to MongoDB, handles Google OAuth, sends emails via Brevo, and communicates through RabbitMQ. Create a `.env` file inside the [auth](file:///c:/Users/Rishi/Desktop/capstone/auth) directory with the following variables:
 ```env
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
@@ -136,6 +145,8 @@ AUTH_MONGO_URI=mongodb+srv://...
 JWT_SECRET=your_jwt_secret
 BREVO_API_KEY=your_brevo_api_key
 BREVO_SENDER_EMAIL=your_sender_email
+RABBITMQ_URL=amqp://your-rabbitmq-host:5672
+RABBITMQ_PORT=5672
 ```
 Then create the generic secret using the command:
 ```shell
@@ -143,7 +154,7 @@ kubectl create secret generic auth-secret --from-env-file=.env
 ```
 
 #### 2. Start the Development Stack with Skaffold
-The entire backend microservice architecture is orchestrated via Skaffold. This builds all components (orchestrator, agent, router, server, template, auth) and deploys them to your cluster, watching for live file changes:
+The entire backend microservice architecture is orchestrated via Skaffold. This builds all components (orchestrator, agent, router, server, template, auth, notification) and deploys them to your cluster, watching for live file changes:
 
 ```shell
 skaffold dev
@@ -239,6 +250,38 @@ The AI Agent utilizes a custom set of LangChain-wrapped tools in [tools.js](file
 * **`create-file`**: Creates brand new files using a `files` array parameter containing path and initial content.
 * **`delete-file`**: Permanently deletes a file/folder at a specified path.
 
+---
 
+## 📬 Event-Driven Notification System
 
+The platform uses an event-driven architecture with **RabbitMQ** to decouple the Auth Service from email delivery. Instead of sending emails synchronously during registration or OTP flows, the Auth Service publishes lightweight event messages to RabbitMQ queues. The Notification Service consumes these events and handles email delivery via Brevo.
 
+### RabbitMQ Queues
+
+| Queue | Published By | Consumed By | Purpose |
+| :--- | :--- | :--- | :--- |
+| `auth_notification_queue` | Auth Service | Notification Service | Welcome emails on new user registration |
+| `otp_queue` | Auth Service | Notification Service | OTP verification & password reset emails |
+
+### Event Payload Structure
+
+```json
+{
+  "userId": "ObjectId",
+  "action": "register | otp | reset",
+  "timestamp": "ISO 8601",
+  "data": {
+    "email": "user@example.com",
+    "fullname": "Jane Doe",
+    "otp": "123456"
+  }
+}
+```
+
+### Email Templates
+
+The Notification Service renders premium, dark-themed HTML email templates for each action:
+
+* **Welcome Email** (`register`): Sent when a new user signs up — highlights platform features with a CTA to the dashboard.
+* **OTP Verification** (`otp`): Displays a styled 6-digit verification code with a 5-minute expiry notice.
+* **Password Reset** (`reset`): Shows a reset code with a security warning badge and expiry countdown.
