@@ -4,6 +4,7 @@ import { Config } from "../config/dotenv.js";
 import { generateOTP } from "../utils/generateOTP.js";
 import { sendEmail } from "../utils/sendEmail.js";
 import { otpTemplate, resetPasswordTemplate } from "../utils/emailTemplate.js";
+import { sendAuthNotification } from "../config/mq.js";
 
 function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -65,6 +66,15 @@ export const registerHandler = async (req, res) => {
       },
     });
 
+    await sendAuthNotification({
+      userId: user._id,
+      action: 'register',
+      timestamp: new Date(),
+      data: {
+        email,
+        fullname,
+      }
+    })
     const htmlContent = otpTemplate(otp, fullname);
 
     try {
@@ -151,6 +161,15 @@ export const googleCallbackHandler = async (req, res) => {
         googleId: id,
         isVerified: true,
       });
+      await sendAuthNotification({
+        userId: isUserExist._id,
+        action: 'register',
+        timestamp: new Date(),
+        data: {
+          email,
+          fullname,
+        }
+      })
     }
     const token = createToken(isUserExist._id);
     res.cookie("token", token, {
