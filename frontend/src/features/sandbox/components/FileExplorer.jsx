@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 import { 
   Folder, 
   FolderOpen, 
@@ -15,16 +14,7 @@ import {
   FolderPlus,
   AlertTriangle
 } from 'lucide-react';
-import axios from 'axios';
-import { 
-  setFiles, 
-  setSelectedFile, 
-  setFileContent, 
-  setFileLoading,
-  incrementPreviewKey 
-} from '../state/sandboxSlice';
-import { setIsCreatingFile } from '../state/uiSlice';
-import { agentUrl } from '../../../config';
+import { useSandbox } from '../hook/useSandbox';
 
 // Helper function to build nested hierarchy from flat list of files
 function buildFileTree(filesArray) {
@@ -76,11 +66,17 @@ function buildFileTree(filesArray) {
 }
 
 export default function FileExplorer() {
-  const dispatch = useDispatch();
-  const sandboxId = useSelector((state) => state.sandbox.sandboxId);
-  const files = useSelector((state) => state.sandbox.files);
-  const selectedFile = useSelector((state) => state.sandbox.selectedFile);
-  const isCreatingFile = useSelector((state) => state.ui.isCreatingFile);
+  const {
+    sandboxId,
+    files,
+    selectedFile,
+    isCreatingFile,
+    fetchFiles,
+    selectFile,
+    createFileOrFolder,
+    deleteFileOrFolder,
+    toggleIsCreatingFile
+  } = useSandbox();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -95,70 +91,40 @@ export default function FileExplorer() {
   const isFetching = useRef(false);
   const lastFetchedId = useRef(null);
 
-  useEffect(() => {
-    if (sandboxId && sandboxId !== lastFetchedId.current) {
-      fetchFiles();
-    }
-  }, [sandboxId]);
-
-  const fetchFiles = async () => {
+  const triggerFetchFiles = async () => {
     if (isFetching.current) return;
     isFetching.current = true;
     setLoading(true);
     setError(false);
-    try {
-      const res = await axios.get(agentUrl(sandboxId, '/list-files'));
-      console.log("Explorer API Response", res.data);
-
-      if (res.data && res.data.success) {
-        const fileList = res.data.files || [];
-        dispatch(setFiles(fileList));
-        
-        // Auto-expand top level directories by default
-        const initialExpanded = {};
-        fileList.forEach(file => {
-          const topDir = file.replace(/\\/g, '/').split('/')[0];
-          if (file.includes('/') || file.includes('\\')) {
-            initialExpanded[topDir] = true;
-          }
-        });
-        setExpandedPaths(prev => ({ ...initialExpanded, ...prev }));
-        lastFetchedId.current = sandboxId;
-      } else {
-        setError(true);
-      }
-    } catch (err) {
-      console.error('Failed to list files:', err);
+    const res = await fetchFiles();
+    if (res && res.success) {
+      const fileList = res.files || [];
+      
+      // Auto-expand top level directories by default
+      const initialExpanded = {};
+      fileList.forEach(file => {
+        const topDir = file.replace(/\\/g, '/').split('/')[0];
+        if (file.includes('/') || file.includes('\\')) {
+          initialExpanded[topDir] = true;
+        }
+      });
+      setExpandedPaths(prev => ({ ...initialExpanded, ...prev }));
+      lastFetchedId.current = sandboxId;
+    } else {
       setError(true);
-    } finally {
-      setLoading(false);
-      isFetching.current = false;
     }
+    setLoading(false);
+    isFetching.current = false;
   };
 
-  const handleSelectFile = async (filePath) => {
-    dispatch(setSelectedFile(filePath));
-    dispatch(setFileLoading(true));
-    dispatch(setFileContent('Loading...'));
-    try {
-      const res = await axios.get(agentUrl(sandboxId, '/read-files'), {
-        params: { files: filePath }
-      });
-      if (res.data && res.data.success && res.data.files && res.data.files[0]) {
-        // Standardize key retrieval
-        const keyVal = `/${filePath}`;
-        const content = res.data.files[0][keyVal] || res.data.files[0][filePath] || '';
-        dispatch(setFileContent(content));
-        dispatch(setFileLoading(false));
-      } else {
-        dispatch(setFileContent('Failed to load file contents.'));
-        dispatch(setFileLoading(false));
-      }
-    } catch (err) {
-      console.error('Failed to read file:', err);
-      dispatch(setFileContent('Failed to load file.'));
-      dispatch(setFileLoading(false));
+  useEffect(() => {
+    if (sandboxId && sandboxId !== lastFetchedId.current) {
+      triggerFetchFiles();
     }
+  }, [sandboxId]);
+
+  const handleSelectFile = async (filePath) => {
+    await selectFile(filePath);
   };
 
   const handleToggleExpand = (path) => {
@@ -171,45 +137,14 @@ export default function FileExplorer() {
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
     if (!newFileName.trim()) return;
-    try {
-      if (createType === 'file') {
-        await axios.post(agentUrl(sandboxId, '/create-files'), {
-          files: [{ file: newFileName, content: '// ' + newFileName }]
-        });
-      } else {
-        // Folders created in agent via folder placeholder or dummy file
-        await axios.post(agentUrl(sandboxId, '/create-files'), {
-          files: [{ file: `${newFileName}/.gitkeep`, content: '' }]
-        });
-      }
+    const res = await createFileOrFolder(createType, newFileName);
+    if (res && res.success) {
       setNewFileName('');
-      dispatch(setIsCreatingFile(false));
-      await fetchFiles();
-      if (createType === 'file') {
-        handleSelectFile(newFileName);
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Failed to create file/folder');
     }
   };
 
   const handleDeleteFile = async (filePath) => {
-    if (!confirm(`Are you sure you want to delete ${filePath}?`)) return;
-    try {
-      await axios.delete(agentUrl(sandboxId, '/delete-path'), {
-        data: { path: filePath }
-      });
-      if (selectedFile === filePath) {
-        dispatch(setSelectedFile(null));
-        dispatch(setFileContent(''));
-      }
-      await fetchFiles();
-      dispatch(incrementPreviewKey());
-    } catch (err) {
-      console.error(err);
-      alert('Failed to delete file');
-    }
+    await deleteFileOrFolder(filePath);
   };
 
   const treeData = buildFileTree(files);
@@ -316,7 +251,7 @@ export default function FileExplorer() {
           <button 
             onClick={() => {
               setCreateType('file');
-              dispatch(setIsCreatingFile(!isCreatingFile));
+              toggleIsCreatingFile(!isCreatingFile);
             }}
             className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition cursor-pointer"
             title="New File"
@@ -326,7 +261,7 @@ export default function FileExplorer() {
           <button 
             onClick={() => {
               setCreateType('folder');
-              dispatch(setIsCreatingFile(!isCreatingFile));
+              toggleIsCreatingFile(!isCreatingFile);
             }}
             className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition cursor-pointer"
             title="New Folder"
@@ -334,7 +269,7 @@ export default function FileExplorer() {
             <FolderPlus size={12} />
           </button>
           <button 
-            onClick={fetchFiles}
+            onClick={triggerFetchFiles}
             className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition cursor-pointer"
             title="Refresh Explorer"
           >
@@ -367,7 +302,7 @@ export default function FileExplorer() {
             <div className="flex justify-end gap-1.5 mt-2 text-[10px]">
               <button 
                 type="button" 
-                onClick={() => dispatch(setIsCreatingFile(false))} 
+                onClick={() => toggleIsCreatingFile(false)} 
                 className="px-2 py-0.5 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition cursor-pointer"
               >
                 Cancel
@@ -398,7 +333,7 @@ export default function FileExplorer() {
             <AlertTriangle size={18} className="text-red-400" />
             <div className="text-slate-400 text-xs font-medium">Unable to load project files</div>
             <button
-              onClick={fetchFiles}
+              onClick={triggerFetchFiles}
               className="mt-1 px-3 py-1 bg-slate-800 hover:bg-slate-700 text-white rounded text-[10px] font-sans transition cursor-pointer flex items-center gap-1.5"
             >
               <RefreshCw size={10} />

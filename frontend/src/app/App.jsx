@@ -1,15 +1,14 @@
 import React from 'react';
 import { Provider } from 'react-redux';
-import { BrowserRouter } from 'react-router-dom';
+import { RouterProvider } from 'react-router-dom';
 import { store } from './app.store';
-import AppRoutes from './app.routes';
+import { routes } from './app.routes';
+import { ToastProvider } from '../features/common/Toast';
 
 export default function App() {
   return (
-    <Provider store={store}>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
-    </Provider>
+    <ToastProvider>
+      <RouterProvider router={routes} />
+    </ToastProvider>
   );
 }

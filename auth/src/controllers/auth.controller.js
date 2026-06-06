@@ -91,19 +91,21 @@ export const registerHandler = async (req, res) => {
       console.error("Registration email failed:", emailError.message);
     }
 
-    return res.status(201).json({
+    res.status(201).json({
       success: true,
       message:
         "Account created. Please verify your email with the OTP sent to " +
         email,
       userId: user._id,
     });
+    return res.redirect("http://localhost:5173/login");
   } catch (err) {
     console.error("Register error:", err);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: "Registration failed. Please try again.",
     });
+    return res.redirect("http://localhost:5173/register");
   }
 };
 
@@ -143,11 +145,13 @@ export const loginHandler = async (req, res) => {
     }
 
     await sendTokenResponse(user, res, "User logged in successfully");
+    return res.redirect("http://localhost:5173/");
   } catch (err) {
     console.error("Login error:", err);
-    return res
-      .status(500)
-      .json({ success: false, message: "Login failed. Please try again." });
+    res.status(500).json({
+      success: false, message: "Login failed. Please try again."
+    });
+    return res.redirect("http://localhost:5173/login");
   }
 };
 
@@ -182,9 +186,10 @@ export const googleCallbackHandler = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    return res.redirect("/");
+    return res.redirect("http://localhost:5173/");
   } catch (err) {
     console.error("Google OAuth error:", err);
+    return res.redirect("http://localhost:5173/login");
   }
 };
 
@@ -242,6 +247,7 @@ export const verifyOTP = async (req, res) => {
       res,
       "Email verified successfully! Welcome to Snitch.",
     );
+    return res.redirect("http://localhost:5173/");
   } catch (err) {
     console.error("VerifyOTP error:", err);
     return res.status(500).json({

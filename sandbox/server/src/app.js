@@ -5,13 +5,14 @@ import { createPod } from "./kubernetes/pod.js"
 import { createService } from "./kubernetes/service.js"
 import { v7 as uuid } from "uuid"
 import { createSandboxKey } from "./config/redis.js"
-
+import cookieParser from "cookie-parser"
 dotenv.config()
 
 const app = express()
 
 app.use(express.json())
 app.use(morgan("dev"))
+app.use(cookieParser())
 app.use(express.urlencoded({ extended: true }))
 
 //Routes

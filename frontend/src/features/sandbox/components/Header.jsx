@@ -1,19 +1,13 @@
 import React from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 import { RefreshCw, Trash2, ShieldCheck, Sparkles, Terminal, Activity, HelpCircle } from 'lucide-react';
-import { destroySandbox, incrementPreviewKey } from '../state/sandboxSlice';
-import { resetChat } from '../state/chatSlice';
-import { resetUi } from '../state/uiSlice';
+import { useSandbox } from '../hook/useSandbox';
 
 export default function Header() {
-  const dispatch = useDispatch();
-  const sandboxId = useSelector((state) => state.sandbox.sandboxId);
+  const { handleDestroySandbox, handleIncrementPreviewKey } = useSandbox();
 
-  const handleDestroySandbox = () => {
+  const onDestroyClick = () => {
     if (confirm('Are you sure you want to release the sandbox? This will clear your current local session.')) {
-      dispatch(destroySandbox());
-      dispatch(resetChat());
-      dispatch(resetUi());
+      handleDestroySandbox();
     }
   };
 
@@ -65,7 +59,7 @@ export default function Header() {
 
         <div className="flex items-center gap-1.5 border-l border-white/[0.08] pl-3">
           <button 
-            onClick={() => dispatch(incrementPreviewKey())}
+            onClick={handleIncrementPreviewKey}
             className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-sans font-medium text-slate-300 hover:text-white bg-slate-900 border border-white/[0.04] hover:border-white/[0.08] rounded transition cursor-pointer"
             title="Reload Preview"
           >
@@ -74,7 +68,7 @@ export default function Header() {
           </button>
           
           <button
-            onClick={handleDestroySandbox}
+            onClick={onDestroyClick}
             className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-sans font-medium text-red-400 hover:text-red-300 bg-red-950/20 hover:bg-red-950/40 border border-red-900/30 hover:border-red-900/50 rounded transition cursor-pointer"
             title="Release Sandbox Container"
           >

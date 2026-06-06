@@ -1,12 +1,9 @@
 import React from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 import { RefreshCw, ExternalLink } from 'lucide-react';
-import { incrementPreviewKey } from '../state/sandboxSlice';
+import { useSandbox } from '../hook/useSandbox';
 
 export default function Preview() {
-  const dispatch = useDispatch();
-  const sandboxId = useSelector((state) => state.sandbox.sandboxId);
-  const previewKey = useSelector((state) => state.sandbox.previewKey);
+  const { sandboxId, previewKey, handleIncrementPreviewKey } = useSandbox();
 
   const previewUrl = sandboxId ? `http://${sandboxId}.preview.localhost` : '';
 
@@ -21,7 +18,7 @@ export default function Preview() {
         </div>
         <div className="flex items-center gap-2">
           <button 
-            onClick={() => dispatch(incrementPreviewKey())}
+            onClick={handleIncrementPreviewKey}
             className="p-1.5 hover:bg-slate-800 rounded-md text-slate-400 hover:text-white transition cursor-pointer"
             title="Reload Preview"
           >

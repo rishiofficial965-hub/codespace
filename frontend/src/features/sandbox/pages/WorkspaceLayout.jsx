@@ -1,6 +1,4 @@
-import React, { useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { useParams } from 'react-router-dom';
+import React from 'react';
 import { 
   GitBranch, 
   RefreshCw, 
@@ -10,23 +8,15 @@ import {
   Sliders,
   HelpCircle
 } from 'lucide-react';
-import Header from './Header';
-import AiChat from './AiChat';
-import WorkspaceCenter from './WorkspaceCenter';
-import TerminalPanel from './TerminalPanel';
-import FileExplorer from './FileExplorer';
-import { setSandboxId } from '../state/sandboxSlice';
+import Header from '../components/Header';
+import AiChat from '../components/AiChat';
+import WorkspaceCenter from '../components/WorkspaceCenter';
+import TerminalPanel from '../components/TerminalPanel';
+import FileExplorer from '../components/FileExplorer';
+import { useSandbox } from '../hook/useSandbox';
 
 export default function WorkspaceLayout() {
-  const dispatch = useDispatch();
-  const { sandboxId } = useParams();
-
-  // Sync the sandboxId from the URL params into Redux store
-  useEffect(() => {
-    if (sandboxId) {
-      dispatch(setSandboxId(sandboxId));
-    }
-  }, [sandboxId, dispatch]);
+  const { sandboxId, fetchFiles } = useSandbox();
 
   return (
     <div className="h-screen bg-[#0d1117] text-[#e5e7eb] flex flex-col overflow-hidden font-sans select-none antialiased">
@@ -75,7 +65,7 @@ export default function WorkspaceLayout() {
 
           {/* Sync indicator */}
           <button 
-            onClick={() => dispatch(setSandboxId(sandboxId))} 
+            onClick={fetchFiles} 
             className="hover:text-slate-300 transition cursor-pointer flex items-center"
             title="Synchronize workspace status"
           >

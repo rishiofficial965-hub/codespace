@@ -1,37 +1,12 @@
 import React from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
 import { Play, Loader2, Activity } from 'lucide-react';
-import axios from 'axios';
-import { API_BASE_URL } from '../../../config';
-import { setSandboxId, setStatus, setCreationStatus } from '../state/sandboxSlice';
+import { useSandbox } from '../hook/useSandbox';
 
 export default function Landing() {
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
-  const status = useSelector((state) => state.sandbox.status);
-  const creationStatus = useSelector((state) => state.sandbox.creationStatus);
+  const { startSandbox, status, creationStatus } = useSandbox();
 
   const handleStartSandbox = async () => {
-    dispatch(setStatus('creating'));
-    dispatch(setCreationStatus('Provisioning new workspace container...'));
-    try {
-      const response = await axios.post(`${API_BASE_URL}/api/sandbox/start`);
-      const { sandboxId } = response.data;
-      
-      dispatch(setCreationStatus('Configuring network and dependencies...'));
-      
-      // Wait a bit for Kubernetes service and agent to become active
-      await new Promise((r) => setTimeout(r, 3000));
-      
-      dispatch(setSandboxId(sandboxId));
-      dispatch(setStatus('ready'));
-      navigate(`/sandbox/${sandboxId}`);
-    } catch (err) {
-      console.error(err);
-      dispatch(setCreationStatus('Failed to start sandbox. Please try again.'));
-      dispatch(setStatus('error'));
-    }
+    await startSandbox();
   };
 
   return (

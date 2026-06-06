@@ -39,6 +39,16 @@ spec:
               secretKeyRef:
                 name: redis-secret
                 key: redis
+          - name: AUTH_MONGO_URI
+            valueFrom:
+              secretKeyRef:
+                name: auth-secret
+                key: AUTH_MONGO_URI
+          - name: JWT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: auth-secret
+                key: JWT_SECRET
         livenessProbe:
           httpGet:
             path: /api/sandbox/healthz

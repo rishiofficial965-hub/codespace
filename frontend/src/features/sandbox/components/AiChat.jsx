@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 import { 
   Send, 
   Code, 
@@ -21,10 +20,7 @@ import {
   Clipboard,
   Check
 } from 'lucide-react';
-import axios from 'axios';
-import { API_BASE_URL, agentUrl } from '../../../config';
-import { addMessage, setIsResponding, addToolLog, clearToolLogs, resetChat } from '../state/chatSlice';
-import { setFiles, incrementPreviewKey } from '../state/sandboxSlice';
+import { useSandbox } from '../hook/useSandbox';
 
 // Helper inline markdown parser to bypass external package weight
 const renderInlineMarkdown = (text) => {
@@ -92,19 +88,20 @@ const renderMarkdown = (text) => {
 };
 
 export default function AiChat() {
-  const dispatch = useDispatch();
-  const messages = useSelector((state) => state.chat.messages);
-  const isResponding = useSelector((state) => state.chat.isResponding);
-  const currentToolLogs = useSelector((state) => state.chat.currentToolLogs);
-  const sandboxId = useSelector((state) => state.sandbox.sandboxId);
+  const {
+    messages,
+    isResponding,
+    currentToolLogs,
+    thinkingTime,
+    sendPrompt,
+    clearChat
+  } = useSandbox();
 
   const [promptText, setPromptText] = useState('');
   const [selectedModel, setSelectedModel] = useState('Gemini 3.5 Flash (Medium)');
   const [showModelDropdown, setShowModelDropdown] = useState(false);
-  const [thinkingTime, setThinkingTime] = useState(0);
   
   const chatEndRef = useRef(null);
-  const timerRef = useRef(null);
 
   const modelsList = [
     'Gemini 3.5 Flash (Medium)',
@@ -117,114 +114,13 @@ export default function AiChat() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isResponding, currentToolLogs]);
 
-  // Handle thinking timer
-  useEffect(() => {
-    if (isResponding) {
-      setThinkingTime(0);
-      timerRef.current = setInterval(() => {
-        setThinkingTime(prev => prev + 1);
-      }, 1000);
-    } else {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    }
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [isResponding]);
-
   const handleSendPrompt = async (e) => {
     if (e) e.preventDefault();
     if (!promptText.trim() || isResponding) return;
 
     const userPrompt = promptText;
     setPromptText('');
-
-    // Dispatch user message
-    dispatch(addMessage({ id: Date.now().toString(), role: 'user', content: userPrompt }));
-    dispatch(setIsResponding(true));
-    dispatch(clearToolLogs());
-    let assistantMessage = '';
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/ai/agent/invoke`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ prompt: userPrompt, projectId: sandboxId }),
-      });
-
-      if (!response.body) {
-        throw new Error('Readable stream not supported');
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop(); // Keep last incomplete line
-
-        for (const line of lines) {
-          const cleaned = line.trim();
-          if (cleaned.startsWith('data: ')) {
-            const jsonStr = cleaned.slice(6);
-            try {
-              const chunk = JSON.parse(jsonStr);
-              if (chunk.type === 'writer') {
-                dispatch(addToolLog(chunk.content));
-              } else {
-                const messageObj = chunk.agent?.messages?.[0] || chunk.messages?.[0];
-                if (messageObj && messageObj.content) {
-                  assistantMessage = messageObj.content;
-                }
-              }
-            } catch (err) {
-              // Ignore partial chunk errors
-            }
-          }
-        }
-      }
-
-      // Add final assistant message with copies of logs
-      dispatch(addMessage({
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: assistantMessage || 'Successfully performed requested modifications.',
-        logs: [...currentToolLogs],
-        duration: thinkingTime
-      }));
-
-      // Refresh file explorer list
-      try {
-        const res = await axios.get(agentUrl(sandboxId, '/list-files'));
-        if (res.data && res.data.success) {
-          dispatch(setFiles(res.data.files || []));
-        }
-      } catch (err) {
-        console.error('Failed to list files:', err);
-      }
-      
-      // Hot Reload preview server
-      dispatch(incrementPreviewKey());
-
-    } catch (err) {
-      console.error(err);
-      dispatch(addMessage({
-        id: (Date.now() + 1).toString(),
-        role: 'system',
-        content: 'Error: Failed to stream response from AI agent. Check network connections.'
-      }));
-    } finally {
-      dispatch(setIsResponding(false));
-    }
+    await sendPrompt(userPrompt);
   };
 
   const handleKeyDown = (e) => {
@@ -235,9 +131,7 @@ export default function AiChat() {
   };
 
   const handleClearHistory = () => {
-    if (confirm('Clear chat history?')) {
-      dispatch(resetChat());
-    }
+    clearChat();
   };
 
   return (

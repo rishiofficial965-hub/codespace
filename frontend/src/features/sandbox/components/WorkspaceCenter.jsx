@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 import { 
   Code, 
   Globe, 
@@ -12,23 +11,21 @@ import {
   X,
   Keyboard
 } from 'lucide-react';
-import axios from 'axios';
-import { 
-  setFileContent, 
-  setFileSaving, 
-  incrementPreviewKey,
-  setSelectedFile 
-} from '../state/sandboxSlice';
-import { agentUrl } from '../../../config';
+import { useSandbox } from '../hook/useSandbox';
 
 export default function WorkspaceCenter() {
-  const dispatch = useDispatch();
-  const sandboxId = useSelector((state) => state.sandbox.sandboxId);
-  const selectedFile = useSelector((state) => state.sandbox.selectedFile);
-  const fileContent = useSelector((state) => state.sandbox.fileContent);
-  const fileLoading = useSelector((state) => state.sandbox.fileLoading);
-  const fileSaving = useSelector((state) => state.sandbox.fileSaving);
-  const previewKey = useSelector((state) => state.sandbox.previewKey);
+  const {
+    sandboxId,
+    selectedFile,
+    fileContent,
+    fileLoading,
+    fileSaving,
+    previewKey,
+    saveFile,
+    handleSetFileContent,
+    handleSetSelectedFile,
+    handleIncrementPreviewKey
+  } = useSandbox();
 
   const [activeTab, setActiveTab] = useState('branding'); // 'branding' | 'editor' | 'preview'
   const [fullscreenPreview, setFullscreenPreview] = useState(false);
@@ -57,23 +54,11 @@ export default function WorkspaceCenter() {
   }, [selectedFile, fileContent, activeTab]);
 
   const handleSaveFile = async () => {
-    if (!selectedFile) return;
-    dispatch(setFileSaving(true));
-    try {
-      await axios.patch(agentUrl(sandboxId, '/update-files'), {
-        updates: [{ file: selectedFile, content: fileContent }]
-      });
-      dispatch(setFileSaving(false));
-      dispatch(incrementPreviewKey());
-    } catch (err) {
-      console.error('Failed to save file:', err);
-      alert('Failed to save file changes.');
-      dispatch(setFileSaving(false));
-    }
+    await saveFile(selectedFile, fileContent);
   };
 
   const handleCloseFile = () => {
-    dispatch(setSelectedFile(null));
+    handleSetSelectedFile(null);
     setActiveTab('branding');
   };
 
@@ -211,10 +196,9 @@ export default function WorkspaceCenter() {
                     <div key={index} className="h-5 leading-5">{index + 1}</div>
                   ))}
                 </div>
-                {/* Editor Textarea */}
                 <textarea
                   value={fileContent}
-                  onChange={(e) => dispatch(setFileContent(e.target.value))}
+                  onChange={(e) => handleSetFileContent(e.target.value)}
                   className="flex-1 p-4 bg-transparent text-slate-300 font-mono text-xs leading-5 border-none outline-none resize-none scrollbar-ide"
                   placeholder="// Type code here..."
                   spellCheck="false"
@@ -254,7 +238,7 @@ export default function WorkspaceCenter() {
               {/* Action buttons */}
               <div className="flex items-center gap-1.5 text-slate-400 shrink-0">
                 <button 
-                  onClick={() => dispatch(incrementPreviewKey())}
+                  onClick={handleIncrementPreviewKey}
                   className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition cursor-pointer"
                   title="Reload Live Server"
                 >
