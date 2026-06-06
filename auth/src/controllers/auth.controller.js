@@ -1,7 +1,6 @@
 import userModel from "../model/user.model.js";
 import jwt from "jsonwebtoken";
 import { Config } from "../config/dotenv.js";
-import { generateOTP } from "../utils/generateOTP.js";
 import { sendAuthNotification, sendOTPNotification } from "../config/mq.js";
 
 function escapeRegex(str) {
@@ -10,6 +9,10 @@ function escapeRegex(str) {
 
 const createToken = (id) => {
   return jwt.sign({ id }, Config.jwtSecret, { expiresIn: "7d" });
+};
+
+const generateOTP = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
 
