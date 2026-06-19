@@ -1,11 +1,9 @@
 import express from "express"
 import morgan from "morgan"
 import dotenv from "dotenv"
-import { createPod } from "./kubernetes/pod.js"
-import { createService } from "./kubernetes/service.js"
-import { v7 as uuid } from "uuid"
-import { createSandboxKey } from "./config/redis.js"
 import cookieParser from "cookie-parser"
+import sandboxRouter from "./routes/sandbox.route.js"
+
 dotenv.config()
 
 const app = express()
@@ -24,20 +22,8 @@ app.get("/api/sandbox/readyz", (req, res) => {
     res.status(200).json({ message: "Sandbox is ready" })
 })
 
-app.post("/api/sandbox/start", async (req, res) => {
-    const sandboxId = uuid()
+app.use("/api/sandbox", sandboxRouter)
 
-    await Promise.all([
-        createPod(sandboxId),
-        createService(sandboxId),
-        createSandboxKey(sandboxId)
-    ])
-    return res.status(201).json({
-        message: 'Sandbox environment created successfully',
-        sandboxId,
-        previewUrl: `http://${sandboxId}.preview.localhost`,
-        agentUrl: `http://${sandboxId}.agent.localhost`,
-    })
-})
+
 
 export default app
